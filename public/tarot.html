@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Tarot Rider">
+<title>Tarot Rider</title>
+<!--
+  Guía del Tarot Rider-Waite: 78 cartas con significado, mensaje y consejo.
+  Pensada para iPad antiguos (iOS 9+): JavaScript ES5, sin CSS Grid ni variables CSS.
+  Las imágenes (dominio público, 1909) se cargan desde Wikimedia Commons; sin conexión
+  se muestra una carta dibujada con su número y símbolo.
+-->
+<style>
+* { -webkit-box-sizing: border-box; box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: #1b1430;
+  color: #f3ead7;
+  font-family: Georgia, "Times New Roman", serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+body.locked { overflow: hidden; }
+button { font-family: inherit; cursor: pointer; }
+
+/* Cabecera */
+.top {
+  background: #241a3f;
+  border-bottom: 1px solid #4a3a73;
+  padding: 14px 16px 10px;
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.title-row { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; }
+h1 { font-size: 24px; margin: 0; color: #e8c872; font-weight: normal; letter-spacing: 1px; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
+h1 small { font-size: 13px; color: #b7a9d6; letter-spacing: 0; }
+.icon-btn {
+  background: #3a2c5e; color: #f3ead7; border: 1px solid #5c4a8c; border-radius: 20px;
+  padding: 7px 13px; font-size: 14px; margin-left: 8px;
+}
+.search {
+  width: 100%; margin-top: 10px; padding: 10px 14px; font-size: 16px;
+  border-radius: 22px; border: 1px solid #5c4a8c; background: #120d22; color: #f3ead7;
+  -webkit-appearance: none; font-family: inherit;
+}
+.chips { margin-top: 8px; white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+.chip {
+  display: inline-block; border: 1px solid #5c4a8c; background: #2c2149; color: #e6dcf5;
+  border-radius: 18px; padding: 7px 12px; margin: 0 6px 6px 0; font-size: 15px;
+}
+.chip.on { background: #e8c872; color: #241a3f; border-color: #e8c872; }
+.chip.small { padding: 6px 10px; font-size: 14px; min-width: 40px; text-align: center; }
+.count { font-size: 13px; color: #b7a9d6; margin-top: 2px; }
+
+/* Ayuda */
+.tips { display: none; background: #2a1f48; border-bottom: 1px solid #4a3a73; padding: 12px 16px; font-size: 15px; line-height: 1.45; }
+.tips.open { display: block; }
+.tips h3 { margin: 6px 0 6px; color: #e8c872; font-size: 17px; font-weight: normal; }
+.tips ul { margin: 0 0 8px; padding-left: 20px; }
+.tips li { margin-bottom: 4px; }
+
+/* Cuadrícula de cartas (inline-block para Safari antiguo) */
+.grid { padding: 10px 10px 40px; font-size: 0; }
+.section-title { font-size: 18px; color: #e8c872; padding: 14px 6px 6px; border-bottom: 1px solid #3a2c5e; margin-bottom: 8px; }
+.card { text-decoration: none; color: #e6dcf5; display: inline-block; vertical-align: top; width: 16.666%; padding: 6px; font-size: 13px; text-align: center; }
+@media (max-width: 760px) { .card { width: 20%; } }
+@media (max-width: 600px) { .card { width: 25%; } }
+@media (max-width: 420px) { .card { width: 33.333%; } }
+.thumb {
+  position: relative; width: 100%; padding-bottom: 172%; border-radius: 6px; overflow: hidden;
+  border: 1px solid #5c4a8c; background: #2c2149;
+}
+.card:active .thumb { border-color: #e8c872; }
+.face, .thumb img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.thumb img { display: block; }
+.face { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center; -webkit-box-align: center; -webkit-align-items: center; align-items: center; padding: 4px; }
+.face .sym { font-size: 30px; line-height: 1.1; color: #e8c872; }
+.face .num { font-size: 15px; color: #e8c872; margin-bottom: 4px; }
+.face .nm { font-size: 11px; color: #e6dcf5; margin-top: 6px; line-height: 1.2; }
+.card .label { display: block; margin-top: 4px; color: #e6dcf5; line-height: 1.2; min-height: 2.4em; }
+.s-mayor { background: #3b2d63; }
+.s-bastos { background: #5a2e1e; }
+.s-copas { background: #1f3a5c; }
+.s-espadas { background: #3a4150; }
+.s-oros { background: #4f4515; }
+.empty { font-size: 16px; color: #b7a9d6; padding: 30px 10px; text-align: center; }
+
+/* Detalle de la carta */
+.overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,6,20,0.88); z-index: 50; overflow-y: scroll; -webkit-overflow-scrolling: touch; }
+.overlay.open { display: block; }
+.sheet { max-width: 720px; margin: 20px auto 40px; background: #f7f0e1; color: #2a2238; border-radius: 12px; overflow: hidden; }
+.sheet-head { background: #241a3f; color: #f3ead7; padding: 12px 14px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; }
+.sheet-head .nav { background: #3a2c5e; border: 1px solid #5c4a8c; color: #f3ead7; border-radius: 18px; padding: 7px 12px; font-size: 15px; }
+.sheet-head .grow { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; text-align: center; font-size: 13px; color: #b7a9d6; }
+.sheet-head .close { margin-left: 8px; background: #e8c872; color: #241a3f; border: 0; border-radius: 18px; padding: 8px 14px; font-size: 15px; }
+.sheet-body { padding: 16px; }
+.hero { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: start; -webkit-align-items: flex-start; align-items: flex-start; }
+.hero-img { width: 40%; max-width: 240px; margin-right: 16px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.hero-img .thumb { border-color: #c9b88f; -webkit-transition: -webkit-transform .4s; transition: transform .4s; }
+.hero-img .thumb.rev { -webkit-transform: rotate(180deg); transform: rotate(180deg); }
+.hero-info { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; min-width: 0; }
+.hero-info h2 { margin: 0 0 4px; font-size: 26px; font-weight: normal; color: #3b2d63; }
+.meta { font-size: 14px; color: #6b5f80; margin-bottom: 10px; }
+.tags { margin-bottom: 10px; }
+.tag { display: inline-block; background: #e9dcc0; color: #4a3a25; border-radius: 12px; padding: 4px 10px; margin: 0 5px 5px 0; font-size: 14px; }
+.toggle { display: inline-block; margin-top: 4px; border: 1px solid #3b2d63; background: #fff; color: #3b2d63; border-radius: 18px; padding: 8px 14px; font-size: 15px; }
+.toggle.on { background: #3b2d63; color: #f7f0e1; }
+.block { margin-top: 16px; padding: 12px 14px; border-radius: 8px; background: #fffaf0; border-left: 5px solid #c9b88f; font-size: 17px; line-height: 1.5; }
+.block h3 { margin: 0 0 4px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #7a6a52; font-weight: normal; }
+.block p { margin: 0; }
+.b-msg { border-left-color: #8a6ad1; background: #f4effc; font-size: 19px; }
+.b-adv { border-left-color: #3f9a6b; background: #eef8f2; }
+.b-rev { border-left-color: #c0573f; background: #fcf0ec; }
+.b-suit { border-left-color: #c9b88f; font-size: 15px; color: #5a4e45; }
+@media (max-width: 520px) {
+  .hero { display: block; }
+  .hero-img { width: 55%; margin: 0 auto 14px; }
+  .hero-info { text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="top" id="top">
+  <div class="title-row">
+    <h1>Tarot Rider <small>· guía de las 78 cartas</small></h1>
+    <button class="icon-btn" id="randomBtn" type="button">Al azar</button>
+    <button class="icon-btn" id="tipsBtn" type="button">¿Cómo buscar?</button>
+  </div>
+  <input class="search" id="search" type="search" placeholder="Buscar: nombre, número o palabra (ej. «3 copas», «luna», «amor»)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <div class="chips" id="suitChips"></div>
+  <div class="chips" id="rankChips"></div>
+  <div class="count" id="count"></div>
+</div>
+
+<div class="tips" id="tips">
+  <h3>¿Qué carta sacaste? Así la encuentras rápido</h3>
+  <ul>
+    <li><b>¿Tiene un número romano arriba y un nombre abajo</b> (El Loco, La Luna, La Torre…)? Es un <b>Arcano Mayor</b>. Toca «Arcanos Mayores» o escribe su nombre.</li>
+    <li><b>¿Ves varas de madera con hojitas?</b> → <b>Bastos</b> (fuego: energía, acción, proyectos).</li>
+    <li><b>¿Ves cálices o copas?</b> → <b>Copas</b> (agua: emociones, amor, relaciones).</li>
+    <li><b>¿Ves espadas?</b> → <b>Espadas</b> (aire: mente, conflictos, decisiones).</li>
+    <li><b>¿Ves monedas doradas con una estrella de cinco puntas?</b> → <b>Oros</b> (también llamados Pentáculos; tierra: dinero, trabajo, cuerpo).</li>
+  </ul>
+  <h3>Luego elige el número o la figura</h3>
+  <ul>
+    <li>Cuenta los objetos: 3 copas = <b>Tres de Copas</b>. El que tiene un solo objeto grande saliendo de una nube es el <b>As</b>.</li>
+    <li>Figuras de la corte: <b>Sota</b> (joven de pie, «Page»), <b>Caballero</b> (a caballo, «Knight»), <b>Reina</b> («Queen»), <b>Rey</b> («King»).</li>
+    <li>La búsqueda entiende cosas como «3 copas», «rey oros», «xviii», «page» o temas como «amor», «dinero», «cambio».</li>
+  </ul>
+  <h3>¿Salió de cabeza (invertida)?</h3>
+  <ul>
+    <li>Dentro de cada carta toca <b>«Ver invertida»</b>: la imagen gira y aparece su lectura al revés. Usa las flechas para pasar a la carta anterior o siguiente.</li>
+  </ul>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="overlay" id="overlay">
+  <div class="sheet" id="sheet">
+    <div class="sheet-head">
+      <button class="nav" id="prevBtn" type="button">&#8249; Anterior</button>
+      <div class="grow" id="position"></div>
+      <button class="nav" id="nextBtn" type="button">Siguiente &#8250;</button>
+      <button class="close" id="closeBtn" type="button">Cerrar</button>
+    </div>
+    <div class="sheet-body" id="detail"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Datos ---------- */
+
+  var IMG_BASE = 'https://commons.wikimedia.org/wiki/Special:FilePath/';
+
+  var SUITS = {
+    mayor:   { name: 'Arcanos Mayores', short: 'Mayores', sym: '\u2726\uFE0E', file: null,
+               info: 'Los Arcanos Mayores hablan de grandes etapas y lecciones del alma. Cuando aparecen, el tema es profundo y trasciende lo cotidiano.' },
+    bastos:  { name: 'Bastos', short: 'Bastos', sym: '\u2663\uFE0E', file: 'Wands', element: 'Fuego',
+               info: 'Bastos (elemento Fuego): energía, pasión, creatividad, iniciativa, proyectos y ambición. Se reconocen por las varas de madera con brotes verdes.' },
+    copas:   { name: 'Copas', short: 'Copas', sym: '\u2665\uFE0E', file: 'Cups', element: 'Agua',
+               info: 'Copas (elemento Agua): emociones, amor, relaciones, intuición y vida interior. Se reconocen por los cálices dorados.' },
+    espadas: { name: 'Espadas', short: 'Espadas', sym: '\u2660\uFE0E', file: 'Swords', element: 'Aire',
+               info: 'Espadas (elemento Aire): pensamiento, verdad, conflictos, decisiones y comunicación. Suelen mostrar los retos de la mente.' },
+    oros:    { name: 'Oros', short: 'Oros', sym: '\u2666\uFE0E', file: 'Pents', element: 'Tierra',
+               info: 'Oros o Pentáculos (elemento Tierra): dinero, trabajo, cuerpo, hogar y lo material. Se reconocen por las monedas con una estrella de cinco puntas.' }
+  };
+  var SUIT_ORDER = ['mayor', 'bastos', 'copas', 'espadas', 'oros'];
+
+  var RANKS = ['As', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis', 'Siete', 'Ocho', 'Nueve', 'Diez', 'Sota', 'Caballero', 'Reina', 'Rey'];
+  var RANK_SHORT = ['As', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Sota', 'Caballero', 'Reina', 'Rey'];
+  var RANK_EN = ['ace', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'page', 'knight', 'queen', 'king'];
+  var ROMAN = ['0', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX', 'XXI'];
+
+  // [nombre, nombre en inglés, archivo, palabras clave, significado, mensaje, consejo, invertida]
+  var MAJOR = [
+    ['El Loco', 'The Fool', 'RWS_Tarot_00_Fool.jpg', 'inicio, libertad, aventura, espontaneidad, fe',
+     'Un nuevo comienzo lleno de posibilidades. El Loco camina hacia el borde sin miedo: representa la inocencia, la confianza en la vida y el impulso de lanzarse a lo desconocido.',
+     'Estás ante un salto. La vida te invita a empezar algo nuevo sin tener todas las respuestas.',
+     'Da el primer paso con el corazón abierto. Confía, pero mira dónde pisas.',
+     'Imprudencia, miedo a empezar o actuar sin pensar. Revisa si estás evitando un riesgo necesario o lanzándote sin cuidado.'],
+    ['El Mago', 'The Magician', 'RWS_Tarot_01_Magician.jpg', 'voluntad, habilidad, poder personal, acción, manifestación',
+     'Tienes todas las herramientas sobre la mesa. El Mago une cielo y tierra: es la capacidad de convertir ideas en realidad mediante la voluntad y la concentración.',
+     'Tienes lo necesario para lograrlo. El poder está en tus manos.',
+     'Enfoca tu energía en una meta clara y actúa ahora. Usa tus talentos con intención.',
+     'Manipulación, talento desperdiciado o falta de enfoque. Cuidado con engaños, propios o ajenos.'],
+    ['La Sacerdotisa', 'The High Priestess', 'RWS_Tarot_02_High_Priestess.jpg', 'intuición, misterio, sabiduría interior, silencio, secretos',
+     'La guardiana del conocimiento oculto. Habla de intuición, de lo que aún no se revela y de la sabiduría que surge en el silencio.',
+     'La respuesta ya está dentro de ti; no todo se ve a simple vista.',
+     'Haz silencio, escucha tu intuición y espera antes de actuar. Observa más, habla menos.',
+     'Desconexión de la intuición, secretos que salen a la luz o ignorar lo que sientes.'],
+    ['La Emperatriz', 'The Empress', 'RWS_Tarot_03_Empress.jpg', 'abundancia, fertilidad, creatividad, cuidado, naturaleza',
+     'La madre fértil y generosa. Representa la abundancia, la creatividad, el placer de los sentidos y el cuidado amoroso de lo que crece.',
+     'Es tiempo de florecer. Lo que siembras con amor dará frutos.',
+     'Cuídate y cuida lo que estás creando. Conecta con la naturaleza, el cuerpo y el disfrute.',
+     'Bloqueo creativo, descuido personal, sobreprotección o dependencia.'],
+    ['El Emperador', 'The Emperor', 'RWS_Tarot_04_Emperor.jpg', 'estructura, autoridad, orden, estabilidad, liderazgo',
+     'El padre y la ley. Representa el orden, la disciplina, la protección y la capacidad de construir bases sólidas.',
+     'Necesitas estructura y firmeza para sostener lo que quieres.',
+     'Organízate, pon límites claros y asume el liderazgo con responsabilidad.',
+     'Rigidez, autoritarismo, control excesivo o, al contrario, falta de disciplina.'],
+    ['El Sumo Sacerdote', 'The Hierophant', 'RWS_Tarot_05_Hierophant.jpg', 'tradición, enseñanza, fe, instituciones, guía',
+     'También llamado El Papa o El Hierofante. Habla de tradición, aprendizaje, valores compartidos y de buscar a un maestro o guía.',
+     'Hay sabiduría en lo establecido y en quienes ya recorrieron el camino.',
+     'Busca consejo de alguien con experiencia o apóyate en tus valores y rituales.',
+     'Romper con lo convencional, dogmatismo o cuestionar reglas que ya no te sirven.'],
+    ['Los Enamorados', 'The Lovers', 'RWS_Tarot_06_Lovers.jpg', 'amor, unión, elección, valores, armonía',
+     'El amor y la elección del corazón. Representa una relación significativa o una decisión importante alineada con tus valores.',
+     'Estás ante una elección que define quién eres. El amor verdadero pide honestidad.',
+     'Elige con el corazón y en coherencia con tus valores. Comprométete con lo que eliges.',
+     'Desequilibrio en una relación, indecisión o elecciones que traicionan tus valores.'],
+    ['El Carro', 'The Chariot', 'RWS_Tarot_07_Chariot.jpg', 'victoria, determinación, avance, control, voluntad',
+     'El triunfo mediante la determinación. El auriga dirige dos fuerzas opuestas con su voluntad y avanza hacia su meta.',
+     'Vas a avanzar si mantienes el rumbo. La victoria depende de tu enfoque.',
+     'Toma las riendas, une tus fuerzas internas y sigue adelante sin distraerte.',
+     'Falta de dirección, pérdida de control u obstáculos por impaciencia.'],
+    ['La Fuerza', 'Strength', 'RWS_Tarot_08_Strength.jpg', 'valor, paciencia, compasión, dominio interior, suavidad',
+     'La fuerza que nace de la calma. La mujer cierra la boca del león con dulzura: es el valor interior, la paciencia y el dominio de los instintos.',
+     'Eres más fuerte de lo que crees; la suavidad también vence.',
+     'Responde con paciencia y compasión, también contigo. Domina el impulso, no lo reprimas.',
+     'Inseguridad, dudas sobre ti, ira mal canalizada o agotamiento.'],
+    ['El Ermitaño', 'The Hermit', 'RWS_Tarot_09_Hermit.jpg', 'introspección, soledad, búsqueda, sabiduría, guía interior',
+     'El sabio que se retira a buscar la verdad. Su farol ilumina el camino paso a paso: es tiempo de reflexión y búsqueda interior.',
+     'Necesitas retirarte un momento para encontrar tus propias respuestas.',
+     'Tómate tiempo a solas, reflexiona y escucha tu voz interior antes de decidir.',
+     'Aislamiento excesivo, soledad no deseada o negarte a mirar hacia dentro.'],
+    ['La Rueda de la Fortuna', 'Wheel of Fortune', 'RWS_Tarot_10_Wheel_of_Fortune.jpg', 'ciclos, destino, cambio, suerte, oportunidad',
+     'La vida gira. Representa los ciclos, los cambios de suerte y los momentos decisivos que llegan por el destino.',
+     'Un ciclo está cambiando; algo se mueve a tu favor.',
+     'Fluye con el cambio y aprovecha la oportunidad. Lo que sube baja, y lo que baja sube.',
+     'Mala racha, resistencia al cambio o sensación de que todo se repite.'],
+    ['La Justicia', 'Justice', 'RWS_Tarot_11_Justice.jpg', 'equilibrio, verdad, causa y efecto, decisiones, legalidad',
+     'La balanza y la espada: verdad, equidad y consecuencias. Cada acción tiene su resultado y la honestidad es clave.',
+     'Recibirás lo que corresponde. La verdad se impone.',
+     'Actúa con honestidad, sopesa los hechos y asume la responsabilidad de tus decisiones.',
+     'Injusticia, deshonestidad, evadir responsabilidades o un juicio desfavorable.'],
+    ['El Colgado', 'The Hanged Man', 'RWS_Tarot_12_Hanged_Man.jpg', 'pausa, rendición, nueva perspectiva, sacrificio, espera',
+     'El hombre cuelga en paz, con la cabeza iluminada. Es una pausa voluntaria que permite ver las cosas desde otro ángulo.',
+     'No es momento de forzar; es momento de mirar distinto.',
+     'Suelta el control, acepta la pausa y cambia tu punto de vista. La solución llega al rendirse.',
+     'Estancamiento, sacrificios inútiles o resistencia a soltar.'],
+    ['La Muerte', 'Death', 'RWS_Tarot_13_Death.jpg', 'transformación, final, cierre, renacimiento, cambio profundo',
+     'Rara vez significa muerte física. Es el final de una etapa que abre paso a algo nuevo: una transformación profunda e inevitable.',
+     'Algo termina para que algo nuevo pueda nacer.',
+     'Acepta el cierre y deja ir lo que ya cumplió su ciclo. Hay vida después del cambio.',
+     'Resistencia al cambio, miedo a soltar o un proceso que se alarga.'],
+    ['La Templanza', 'Temperance', 'RWS_Tarot_14_Temperance.jpg', 'equilibrio, moderación, paciencia, sanación, armonía',
+     'El ángel mezcla el agua entre dos copas: es la alquimia del equilibrio, la moderación y la sanación paso a paso.',
+     'La armonía llega con paciencia y medida.',
+     'Busca el punto medio, evita los excesos y combina lo mejor de cada parte.',
+     'Desequilibrio, excesos, impaciencia o conflictos por falta de moderación.'],
+    ['El Diablo', 'The Devil', 'RWS_Tarot_15_Devil.jpg', 'apego, tentación, adicción, sombra, ataduras',
+     'Las cadenas están flojas: podrían quitárselas. Representa los apegos, las tentaciones, los miedos y las ataduras que uno mismo acepta.',
+     'Algo te tiene atado/a, pero tienes la llave para liberarte.',
+     'Mira con honestidad tus apegos y hábitos. Reconoce tu sombra y elige ser libre.',
+     'Liberación, romper cadenas, recuperar el control sobre una adicción o relación.'],
+    ['La Torre', 'The Tower', 'RWS_Tarot_16_Tower.jpg', 'ruptura, revelación, cambio repentino, caída, liberación',
+     'Un rayo derriba lo construido sobre bases falsas. Es un cambio súbito que destruye ilusiones y libera la verdad.',
+     'Lo que no era sólido se cae. Duele, pero te libera.',
+     'No te aferres a lo que se derrumba. Acepta la verdad y reconstruye sobre bases reales.',
+     'Evitar una crisis inevitable, miedo al cambio o un derrumbe más lento y personal.'],
+    ['La Estrella', 'The Star', 'RWS_Tarot_17_Star.jpg', 'esperanza, fe, inspiración, sanación, serenidad',
+     'Después de la tormenta, la calma. La Estrella trae esperanza, renovación, inspiración y la sensación de estar guiado/a.',
+     'Hay esperanza. Estás sanando y el universo te acompaña.',
+     'Ten fe en el futuro, cuida tus sueños y comparte tu luz con los demás.',
+     'Desánimo, pérdida de fe o desconexión de tus sueños.'],
+    ['La Luna', 'The Moon', 'RWS_Tarot_18_Moon.jpg', 'ilusión, miedo, intuición, incertidumbre, subconsciente',
+     'El camino bajo la luz de la luna: nada es del todo claro. Habla de miedos, confusión, sueños y del mundo del subconsciente.',
+     'No todo es lo que parece. Tus miedos pueden estar deformando la realidad.',
+     'Avanza con cautela, confía en tu intuición y no tomes decisiones desde el miedo.',
+     'La confusión se disipa, verdades que salen a la luz o miedos que se superan.'],
+    ['El Sol', 'The Sun', 'RWS_Tarot_19_Sun.jpg', 'alegría, éxito, vitalidad, claridad, optimismo',
+     'Una de las cartas más positivas. El niño en el caballo bajo el sol: alegría, éxito, claridad y vitalidad.',
+     'Todo se ilumina. Es un tiempo de felicidad y logros.',
+     'Disfruta, celebra y muéstrate tal como eres. Comparte tu alegría.',
+     'Alegría temporalmente opacada, exceso de optimismo o éxito retrasado.'],
+    ['El Juicio', 'Judgement', 'RWS_Tarot_20_Judgement.jpg', 'despertar, renacimiento, llamado, evaluación, perdón',
+     'La trompeta llama a despertar. Es un momento de evaluar el pasado, perdonar y responder a tu verdadera vocación.',
+     'Es hora de despertar y responder al llamado de tu alma.',
+     'Haz balance, perdona (también a ti) y elige renacer con lo aprendido.',
+     'Autocrítica dura, dudas, ignorar un llamado interior o miedo al juicio ajeno.'],
+    ['El Mundo', 'The World', 'RWS_Tarot_21_World.jpg', 'plenitud, logro, cierre de ciclo, integración, viaje',
+     'La culminación. Un ciclo completo, el éxito alcanzado y la sensación de estar en armonía con todo.',
+     'Has llegado. Este ciclo se completa con éxito.',
+     'Celebra tus logros, cierra con gratitud y prepárate para el siguiente ciclo.',
+     'Algo queda por terminar, falta de cierre o retrasos para completar una meta.']
+  ];
+
+  // Por palo: 14 cartas (As..Rey): [palabras clave, significado, mensaje, consejo, invertida]
+  var MINOR = {
+    bastos: [
+      ['inspiración, nuevo proyecto, impulso, creatividad', 'Una chispa de inspiración y energía para empezar algo nuevo. Potencial creativo y entusiasmo.', 'Nace una idea o proyecto con mucha fuerza.', 'Aprovecha el impulso y empieza ya, mientras el fuego está vivo.', 'Retrasos, falta de motivación o ideas que no despegan.'],
+      ['planificación, decisión, visión de futuro', 'Con el mundo en la mano, miras más allá. Planear el futuro y decidir hacia dónde expandirte.', 'Tienes una visión; ahora toca decidir el rumbo.', 'Haz un plan concreto y atrévete a salir de tu zona conocida.', 'Miedo a lo desconocido, mala planificación o indecisión.'],
+      ['expansión, espera de resultados, visión', 'Los barcos están en camino. Tus esfuerzos empiezan a dar frutos y se abren horizontes.', 'Lo que pusiste en marcha avanza; vienen oportunidades.', 'Mira lejos, prepárate para crecer y ten paciencia con los resultados.', 'Retrasos, obstáculos en la expansión o falta de previsión.'],
+      ['celebración, hogar, estabilidad, logro', 'Una fiesta bajo la guirnalda: celebración, armonía en el hogar y un logro compartido.', 'Hay algo que celebrar; disfruta de la estabilidad alcanzada.', 'Celebra con los tuyos y valora el hogar que has construido.', 'Tensiones en casa, falta de apoyo o celebración postergada.'],
+      ['competencia, conflicto, discusiones, rivalidad', 'Cinco jóvenes chocan sus bastos. Desacuerdos, competencia o choque de egos.', 'Hay roces y opiniones encontradas a tu alrededor.', 'Escucha antes de pelear; usa la competencia para crecer, no para destruir.', 'Evitar conflictos, tensión que se calma o acuerdos tras la disputa.'],
+      ['victoria, reconocimiento, éxito público', 'El jinete coronado de laurel regresa victorioso. Éxito, reconocimiento y confianza.', 'Tu esfuerzo será reconocido. Vas ganando.', 'Disfruta el logro con humildad y sigue adelante con confianza.', 'Falta de reconocimiento, ego inflado o miedo al fracaso.'],
+      ['defensa, perseverancia, mantener la posición', 'Un hombre defiende su lugar en lo alto frente a varios. Valentía y firmeza ante la presión.', 'Te toca defender lo que crees, aunque te cuestionen.', 'Mantente firme en tus convicciones; tienes la posición ventajosa.', 'Agotamiento, sentirte superado/a o rendirte demasiado pronto.'],
+      ['rapidez, movimiento, noticias, avance', 'Ocho bastos vuelan por el aire. Las cosas se aceleran: mensajes, viajes y avances rápidos.', 'Todo se mueve rápido; llegan noticias.', 'Actúa con agilidad y aprovecha el impulso del momento.', 'Retrasos, frustración, prisas mal dirigidas.'],
+      ['resiliencia, cansancio, última prueba', 'Herido pero en guardia. Has resistido mucho y queda un último esfuerzo antes de lograrlo.', 'Estás cerca de la meta; no te rindas ahora.', 'Protege tu energía y persevera un poco más. Ya casi.', 'Agotamiento extremo, paranoia o ponerte a la defensiva sin necesidad.'],
+      ['carga, responsabilidad, sobrecarga', 'Un hombre carga diez bastos con esfuerzo. Demasiadas responsabilidades y presión.', 'Estás cargando más de lo que te corresponde.', 'Delega, suelta lo que no es tuyo y prioriza lo esencial.', 'Soltar cargas, colapso por exceso o aprender a decir que no.'],
+      ['entusiasmo, exploración, mensajes, curiosidad', 'Un joven curioso mira su basto. Noticias, ideas nuevas y deseo de explorar.', 'Llega una noticia o idea que despierta tu entusiasmo.', 'Explora con curiosidad y atrévete a probar algo nuevo.', 'Ideas sin concretar, impaciencia o malas noticias.'],
+      ['acción, aventura, impulsividad, pasión', 'Un jinete se lanza al galope. Energía, aventura, viajes y pasión arrolladora.', 'Es tiempo de moverse y actuar con pasión.', 'Lánzate, pero no confundas valentía con imprudencia.', 'Impulsividad, prisa, proyectos abandonados o ira.'],
+      ['confianza, carisma, determinación, calidez', 'La reina con girasoles y un gato negro: segura de sí, cálida, magnética y decidida.', 'Tienes el brillo y la seguridad para lograrlo.', 'Muéstrate con confianza y lidera con calidez.', 'Inseguridad, celos o exigencia excesiva.'],
+      ['liderazgo, visión, emprendimiento, honor', 'Un líder natural con visión y carisma. Inspira a otros y convierte ideas en empresas.', 'Tienes madera de líder; toma la iniciativa.', 'Asume el mando con visión a largo plazo y da el ejemplo.', 'Autoritarismo, impulsividad o expectativas imposibles.']
+    ],
+    copas: [
+      ['amor nuevo, emoción, intuición, apertura', 'La copa desborda de agua bendecida. Un nuevo comienzo emocional: amor, compasión y creatividad.', 'Tu corazón se abre; llega amor o una emoción nueva.', 'Recibe y da amor sin miedo. Deja fluir lo que sientes.', 'Emociones bloqueadas, vacío afectivo o amor propio descuidado.'],
+      ['unión, pareja, conexión, reciprocidad', 'Dos personas intercambian copas. Una conexión mutua, un vínculo equilibrado o una reconciliación.', 'Hay una conexión especial y recíproca.', 'Cuida el vínculo con respeto e igualdad.', 'Desequilibrio en la relación, ruptura o falta de comunicación.'],
+      ['amistad, celebración, comunidad, alegría', 'Tres mujeres brindan juntas. Amistad, celebraciones y el apoyo de tu comunidad.', 'Es tiempo de celebrar con quienes quieres.', 'Rodéate de tus amigos y comparte la alegría.', 'Excesos, chismes o sentirte excluido/a.'],
+      ['apatía, contemplación, insatisfacción', 'Un joven bajo el árbol ignora la copa que le ofrecen. Aburrimiento o no ver lo que la vida te da.', 'Puede que estés pasando por alto una oportunidad.', 'Sal de la queja y mira lo que se te ofrece con ojos nuevos.', 'Despertar, aceptar oportunidades o salir del letargo.'],
+      ['pérdida, tristeza, arrepentimiento, duelo', 'Tres copas derramadas, pero dos siguen en pie. Duelo y decepción, aunque no todo está perdido.', 'Te duele lo perdido, pero aún queda algo valioso.', 'Permítete sentir el dolor y luego gira para ver lo que permanece.', 'Aceptación, perdón y el comienzo de la sanación.'],
+      ['nostalgia, infancia, recuerdos, inocencia', 'Un niño ofrece una copa con flores. Recuerdos felices, nostalgia, ternura y reencuentros.', 'El pasado o alguien de él vuelve con dulzura.', 'Conecta con tu niño/a interior, pero no vivas solo en el pasado.', 'Quedarse atrapado/a en el pasado o idealizarlo.'],
+      ['opciones, ilusiones, fantasía, tentación', 'Siete copas con visiones en las nubes. Muchas opciones, sueños y espejismos.', 'Tienes muchas opciones, pero no todas son reales.', 'Aterriza tus sueños: elige una opción concreta y realista.', 'Claridad, decisiones firmes o fin de la confusión.'],
+      ['abandono, búsqueda, alejarse, desilusión', 'Un hombre se aleja de ocho copas bajo la luna. Dejar atrás lo que ya no llena para buscar algo más profundo.', 'Es momento de irte de lo que ya no te nutre.', 'Ten el valor de soltar y buscar lo que realmente te importa.', 'Miedo a dejar algo, estancamiento o volver a lo que no funciona.'],
+      ['deseo cumplido, satisfacción, bienestar', 'La «carta de los deseos». Un hombre satisfecho ante sus copas: placer, gratitud y sueños realizados.', 'Tu deseo puede cumplirse.', 'Agradece y disfruta lo que has logrado.', 'Insatisfacción, excesos o materialismo vacío.'],
+      ['felicidad, familia, armonía, plenitud', 'Un arcoíris de copas sobre una familia feliz. Plenitud emocional, hogar y amor duradero.', 'La felicidad familiar y emocional está a tu alcance.', 'Valora a tu familia y a quienes forman tu hogar.', 'Conflictos familiares, desconexión o expectativas no cumplidas.'],
+      ['sensibilidad, mensaje afectivo, creatividad', 'Un joven mira un pez que sale de su copa. Noticias afectivas, sorpresas y sensibilidad creativa.', 'Llega una sorpresa o mensaje del corazón.', 'Escucha tu lado sensible y creativo, aunque parezca extraño.', 'Inmadurez emocional, bloqueos creativos o desilusión.'],
+      ['romance, propuesta, encanto, idealismo', 'El caballero ofrece su copa con calma. Romance, invitaciones, propuestas y seguir al corazón.', 'Llega una propuesta, quizá romántica.', 'Sigue tu corazón, pero mantén los pies en la tierra.', 'Celos, cambios de humor o promesas vacías.'],
+      ['compasión, intuición, cuidado, empatía', 'La reina contempla su copa cerrada. Gran sensibilidad, intuición, empatía y cuidado de los demás.', 'Tu intuición y tu empatía son tu guía.', 'Cuida a otros sin olvidarte de cuidarte a ti.', 'Dependencia emocional, absorber emociones ajenas o descuidarte.'],
+      ['madurez emocional, calma, diplomacia', 'El rey se mantiene estable en medio del mar agitado. Equilibrio emocional, sabiduría y generosidad.', 'Puedes mantener la calma en medio de la tormenta.', 'Gestiona tus emociones con serenidad y actúa con compasión.', 'Manipulación emocional, frialdad o reprimir sentimientos.']
+    ],
+    espadas: [
+      ['claridad, verdad, idea nueva, avance', 'Una espada coronada surge de la nube. Claridad mental, verdad y un gran avance intelectual.', 'Lo verás todo con claridad. La verdad corta la confusión.', 'Di tu verdad con claridad y toma decisiones con la mente despejada.', 'Confusión, ideas mal comunicadas o usar la verdad para herir.'],
+      ['indecisión, bloqueo, evitar, tregua', 'Una mujer con los ojos vendados sostiene dos espadas cruzadas. Indecisión o evitar mirar algo.', 'Estás evitando una decisión.', 'Quítate la venda: mira los hechos y decide.', 'Liberarse de la indecisión, sobrecarga de información o verdades que salen.'],
+      ['dolor, desamor, tristeza, herida', 'Tres espadas atraviesan un corazón bajo la lluvia. Dolor emocional, pena o una verdad que duele.', 'Algo duele, y está bien sentirlo.', 'Permite que salga la tristeza; nombrar el dolor es el primer paso para sanar.', 'Recuperación, perdón y liberar el dolor.'],
+      ['descanso, recuperación, pausa, meditación', 'Un caballero reposa en un templo. Necesidad de descanso, retiro y recuperación.', 'Necesitas detenerte y recargar energía.', 'Descansa, medita y toma distancia antes del siguiente paso.', 'Agotamiento, inquietud o volver a la acción tras el reposo.'],
+      ['conflicto, derrota, ganar a cualquier precio', 'Un hombre recoge espadas mientras otros se alejan derrotados. Victorias que dejan heridas.', 'Ganar no siempre vale la pena si pierdes lo importante.', 'Elige tus batallas. A veces es mejor ceder que ganar a costa de todo.', 'Reconciliación, querer cerrar el conflicto o arrepentimiento.'],
+      ['transición, alejarse, viaje, superación', 'Una barca se aleja hacia aguas tranquilas. Dejar atrás lo difícil y avanzar hacia algo mejor.', 'Te estás alejando de una etapa difícil hacia aguas más calmas.', 'Sigue adelante aunque lleves equipaje emocional; lo peor queda atrás.', 'Resistencia a cambiar, asuntos pendientes o un viaje que se demora.'],
+      ['engaño, estrategia, astucia, sigilo', 'Un hombre se escabulle con cinco espadas. Engaño, estrategias ocultas o intentar salirse con la suya.', 'Algo no es del todo honesto, tuyo o de otros.', 'Actúa con astucia, pero sin traicionar tu ética. Ojo con quien te rodea.', 'Confesión, verdad que sale a la luz o dejar de engañarse.'],
+      ['restricción, sentirse atrapado/a, miedo', 'Una mujer vendada y atada entre espadas, pero el camino está abierto. Te limita más la mente que la realidad.', 'Te sientes atrapado/a, pero la salida existe.', 'Cambia tu forma de pensar: tienes más libertad de la que crees.', 'Liberación, nuevas perspectivas o salir de una situación limitante.'],
+      ['ansiedad, insomnio, preocupación, culpa', 'Una persona despierta llorando en la noche. Preocupaciones, miedos y pensamientos que no dejan dormir.', 'Tu mente está amplificando tus miedos.', 'Habla de lo que te preocupa y busca apoyo; no estás solo/a.', 'Esperanza, salir de la angustia o miedos que empiezan a soltarse.'],
+      ['final doloroso, fondo, fin de ciclo', 'Un hombre en el suelo con diez espadas, pero amanece en el horizonte. Tocar fondo y el final definitivo de algo.', 'Algo terminó del todo. Ya no puede empeorar.', 'Acepta el final y deja que el amanecer te traiga un nuevo comienzo.', 'Recuperación, resistir lo inevitable o aprender de la caída.'],
+      ['curiosidad, vigilancia, nuevas ideas', 'Un joven alerta con su espada en alto. Curiosidad mental, ganas de aprender y estar atento/a.', 'Mantente alerta; llegan ideas o información nueva.', 'Investiga, pregunta y aprende antes de actuar.', 'Chismes, palabras hirientes o hablar sin pensar.'],
+      ['acción rápida, ambición, impulsividad', 'El caballero carga a toda velocidad. Determinación, rapidez y defender una idea con fuerza.', 'Hay que actuar rápido y con decisión.', 'Avanza con firmeza, pero piensa antes de arrasar.', 'Precipitación, agresividad o falta de dirección.'],
+      ['claridad, independencia, honestidad', 'La reina mira de frente con su espada. Pensamiento claro, independencia y verdad sin rodeos.', 'Ves las cosas como son; confía en tu juicio.', 'Pon límites con claridad y habla con honestidad, pero sin crueldad.', 'Frialdad, amargura o juicios duros.'],
+      ['autoridad intelectual, verdad, ética', 'El rey en su trono con la espada recta. Razón, justicia, autoridad y decisiones basadas en la lógica.', 'Usa la cabeza: la razón te guiará.', 'Decide con lógica, ética y objetividad.', 'Abuso de poder, manipulación o rigidez mental.']
+    ],
+    oros: [
+      ['oportunidad, prosperidad, nuevo inicio material', 'Una moneda dorada sale de la nube sobre un jardín. Una nueva oportunidad material, laboral o económica.', 'Se presenta una oportunidad concreta de prosperar.', 'Siembra hoy lo que quieres cosechar mañana. Aprovecha la oportunidad.', 'Oportunidad perdida, mala planificación financiera.'],
+      ['equilibrio, malabares, adaptabilidad', 'Un joven hace malabares con dos monedas. Equilibrar varias responsabilidades y adaptarse al cambio.', 'Estás manejando muchas cosas a la vez.', 'Prioriza y mantén la flexibilidad; no pierdas el equilibrio.', 'Desorden, sobrecarga o problemas de organización.'],
+      ['trabajo en equipo, aprendizaje, maestría', 'Un artesano trabaja en una catedral con otros. Colaboración, habilidad y reconocimiento del trabajo bien hecho.', 'Tu trabajo es valioso y crece en equipo.', 'Colabora, escucha a otros y perfecciona tu oficio.', 'Falta de colaboración, trabajo mediocre o desmotivación.'],
+      ['seguridad, control, ahorro, apego', 'Un hombre se aferra a sus monedas. Seguridad material, ahorro, pero también miedo a perder.', 'Estás protegiendo lo que tienes, quizá demasiado.', 'Ahorra con sensatez, pero no dejes que el miedo te cierre.', 'Avaricia, gastos excesivos o soltar el control.'],
+      ['dificultad, carencia, exclusión, ayuda cerca', 'Dos personas pobres caminan en la nieve junto a una ventana iluminada. Dificultades materiales o sentirse excluido/a.', 'Pasas por un momento difícil, pero la ayuda está cerca.', 'Pide ayuda: no tienes que atravesar esto solo/a.', 'Recuperación, salir de la crisis o recibir apoyo.'],
+      ['generosidad, dar y recibir, caridad', 'Un hombre próspero reparte monedas con su balanza. Generosidad, ayuda y equilibrio entre dar y recibir.', 'Habrá ayuda: das o recibes.', 'Comparte lo que tienes y acepta ayuda cuando la necesites.', 'Deudas, generosidad con condiciones o abuso de poder.'],
+      ['paciencia, inversión, evaluación', 'Un agricultor contempla su cosecha que aún crece. Esfuerzo a largo plazo y paciencia con los resultados.', 'Lo que sembraste crece, pero lleva su tiempo.', 'Evalúa tu progreso y ten paciencia; sigue cultivando.', 'Impaciencia, inversión poco rentable o esfuerzo sin frutos.'],
+      ['dedicación, aprendizaje, esfuerzo, oficio', 'Un artesano talla monedas una a una. Trabajo constante, aprendizaje y perfeccionamiento.', 'El esfuerzo diario construye tu maestría.', 'Concéntrate en hacer bien tu trabajo, paso a paso.', 'Perfeccionismo, falta de motivación o trabajo repetitivo.'],
+      ['independencia, lujo, autosuficiencia', 'Una mujer elegante en su jardín con un halcón. Abundancia ganada por méritos propios e independencia.', 'Disfrutas el fruto de tu trabajo.', 'Disfruta tu independencia y date gustos merecidos.', 'Dependencia económica, gastos excesivos o aparentar.'],
+      ['legado, familia, riqueza duradera', 'Tres generaciones juntas en un hogar próspero. Estabilidad, herencia y riqueza a largo plazo.', 'Construyes algo que perdura.', 'Piensa en el largo plazo y en lo que dejas a los tuyos.', 'Conflictos de herencia, inestabilidad financiera o problemas familiares.'],
+      ['estudio, oportunidad, ambición, aprendizaje', 'Un joven contempla su moneda con atención. Nuevos estudios, oportunidades laborales y metas concretas.', 'Hay algo nuevo que aprender o empezar en lo práctico.', 'Estudia, prepárate y da pasos concretos hacia tu meta.', 'Falta de enfoque, procrastinación o aprender sin aplicar.'],
+      ['constancia, responsabilidad, rutina', 'El caballero inmóvil sobre su caballo de tiro. Trabajo constante, método y fiabilidad.', 'Despacio pero seguro: la constancia te llevará lejos.', 'Sé paciente, metódico/a y cumple con lo que prometes.', 'Estancamiento, aburrimiento o pereza.'],
+      ['cuidado, práctica, abundancia, hogar', 'La reina rodeada de naturaleza sostiene su moneda. Practicidad, generosidad y cuidado del hogar y el cuerpo.', 'Puedes nutrir a otros y a ti con sentido práctico.', 'Cuida tu cuerpo, tu hogar y tus finanzas con amor.', 'Desequilibrio entre trabajo y hogar, descuido personal.'],
+      ['éxito material, estabilidad, abundancia', 'El rey rodeado de viñas y riqueza. Éxito, seguridad, liderazgo en los negocios y abundancia.', 'Has construido estabilidad y prosperidad.', 'Administra tu abundancia con sabiduría y generosidad.', 'Materialismo, terquedad o mala gestión del dinero.']
+    ]
+  };
+
+  /* ---------- Construcción del mazo ---------- */
+
+  var CARDS = [];
+  var i, j, d;
+  for (i = 0; i < MAJOR.length; i++) {
+    d = MAJOR[i];
+    CARDS.push({ suit: 'mayor', rank: i, name: d[0], en: d[1], file: d[2], num: ROMAN[i],
+                 keys: d[3], mean: d[4], msg: d[5], adv: d[6], rev: d[7] });
+  }
+  for (j = 1; j < SUIT_ORDER.length; j++) {
+    var sk = SUIT_ORDER[j], suit = SUITS[sk], list = MINOR[sk];
+    for (i = 0; i < 14; i++) {
+      d = list[i];
+      var file = suit.file + (i < 9 ? '0' : '') + (i + 1) + '.jpg';
+      if (sk === 'bastos' && i === 8) file = 'Tarot_Nine_of_Wands.jpg';
+      CARDS.push({ suit: sk, rank: i, name: RANKS[i] + ' de ' + suit.name,
+                   en: RANK_EN[i] + ' of ' + suit.file.toLowerCase(), file: file,
+                   num: i < 10 ? RANK_SHORT[i] : ['Sota', 'Cab.', 'Reina', 'Rey'][i - 10],
+                   keys: d[0], mean: d[1], msg: d[2], adv: d[3], rev: d[4] });
+    }
+  }
+
+  function fold(s) {
+    s = String(s).toLowerCase();
+    var from = 'áàäâéèëêíìïîóòöôúùüûñç', to = 'aaaaeeeeiiiioooouuuunc', out = '';
+    for (var k = 0; k < s.length; k++) {
+      var p = from.indexOf(s.charAt(k));
+      out += p >= 0 ? to.charAt(p) : s.charAt(k);
+    }
+    return out;
+  }
+
+  var WORD_NUM = { uno: '1', as: '1', dos: '2', tres: '3', cuatro: '4', cinco: '5', seis: '6', siete: '7', ocho: '8', nueve: '9', diez: '10' };
+  var SUIT_ALIASES = {
+    bastos: 'basto bastos wands varas fuego', copas: 'copa copas cups agua caliz',
+    espadas: 'espada espadas swords aire', oros: 'oro oros pentaculos pentaculo pents monedas tierra dinero',
+    mayor: 'mayor mayores arcano arcanos'
+  };
+
+  for (i = 0; i < CARDS.length; i++) {
+    var c = CARDS[i];
+    c.index = i;
+    var extra = c.suit === 'mayor'
+      ? ' ' + c.rank + ' ' + c.num.toLowerCase()
+      : ' ' + (c.rank + 1) + (c.rank === 0 ? ' 1 as ace' : '') + ' ' + RANK_EN[c.rank];
+    c.hay = fold(c.name + ' ' + c.en + ' ' + c.keys + ' ' + SUIT_ALIASES[c.suit] + extra);
+    c.nameHay = fold(c.name + ' ' + c.en);
+  }
+
+  /* ---------- Estado y filtros ---------- */
+
+  var state = { suit: 'todas', rank: -1, q: '' };
+  var visible = [];
+  var current = -1, reversed = false;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var grid = $('grid'), search = $('search');
+
+  function matches(c) {
+    if (state.suit !== 'todas' && c.suit !== state.suit) return false;
+    if (state.rank >= 0 && (c.suit === 'mayor' || c.rank !== state.rank)) return false;
+    if (!state.q) return true;
+    var words = fold(state.q).split(/\s+/);
+    for (var k = 0; k < words.length; k++) {
+      var w = words[k];
+      if (!w || w === 'de' || w === 'del' || w === 'la' || w === 'el') continue;
+      if (WORD_NUM[w]) w = WORD_NUM[w];
+      if (/^\d+$/.test(w)) {
+        // Número exacto: arcano mayor con ese número o carta menor con ese valor.
+        var n = parseInt(w, 10);
+        if (!((c.suit === 'mayor' && c.rank === n) || (c.suit !== 'mayor' && c.rank + 1 === n))) return false;
+      } else if (/^[ivxl]+$/.test(w) && c.suit === 'mayor') {
+        if (c.num.toLowerCase() !== w && c.hay.indexOf(w) < 0) return false;
+      } else if (c.hay.indexOf(w) < 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function faceHTML(c) {
+    var s = SUITS[c.suit];
+    return '<div class="face s-' + c.suit + '"><div class="num">' + c.num + '</div>' +
+      '<div class="sym">' + s.sym + '</div><div class="nm">' + c.name + '</div></div>';
+  }
+
+  function thumbHTML(c, width, extraClass) {
+    var src = IMG_BASE + encodeURIComponent(c.file) + '?width=' + width;
+    return '<div class="thumb' + (extraClass || '') + '">' + faceHTML(c) +
+      '<img src="' + src + '" alt="" onerror="this.style.display=\'none\'"></div>';
+  }
+
+  function render() {
+    visible = [];
+    var html = '', lastSuit = '', perSuit = 0;
+    for (var k = 0; k < CARDS.length; k++) {
+      var c = CARDS[k];
+      if (!matches(c)) continue;
+      if (c.suit !== lastSuit) {
+        html += '<div class="section-title">' + SUITS[c.suit].name +
+          (c.suit !== 'mayor' ? ' <small style="color:#b7a9d6;font-size:14px">· ' + SUITS[c.suit].element + '</small>' : '') + '</div>';
+        lastSuit = c.suit;
+      }
+      html += '<a class="card" href="#" data-i="' + c.index + '">' + thumbHTML(c, 180, '') +
+        '<span class="label">' + c.name + '</span></a>';
+      visible.push(c.index);
+    }
+    if (!visible.length) html = '<div class="empty">No encontré cartas con ese filtro. Prueba con otra palabra o toca «Todas».</div>';
+    grid.innerHTML = html;
+    $('count').innerHTML = visible.length === 78 ? '78 cartas' : visible.length + ' de 78 cartas';
+  }
+
+  function chip(label, value, on, cls) {
+    return '<button type="button" class="chip' + (cls ? ' ' + cls : '') + (on ? ' on' : '') + '" data-v="' + value + '">' + label + '</button>';
+  }
+
+  function renderChips() {
+    var html = chip('Todas', 'todas', state.suit === 'todas');
+    for (var k = 0; k < SUIT_ORDER.length; k++) {
+      var s = SUITS[SUIT_ORDER[k]];
+      html += chip(s.sym + ' ' + (SUIT_ORDER[k] === 'mayor' ? 'Arcanos Mayores' : s.name), SUIT_ORDER[k], state.suit === SUIT_ORDER[k]);
+    }
+    $('suitChips').innerHTML = html;
+
+    var rc = $('rankChips');
+    if (state.suit === 'mayor') { rc.style.display = 'none'; return; }
+    rc.style.display = 'block';
+    html = chip('Todos los números', '-1', state.rank === -1, 'small');
+    for (var r = 0; r < 14; r++) html += chip(RANK_SHORT[r], r, state.rank === r, 'small');
+    rc.innerHTML = html;
+  }
+
+  function closest(el, attr) {
+    while (el && el !== document) {
+      if (el.getAttribute && el.getAttribute(attr) !== null) return el;
+      el = el.parentNode;
+    }
+    return null;
+  }
+
+  $('suitChips').onclick = function (e) {
+    var b = closest(e.target, 'data-v'); if (!b) return;
+    state.suit = b.getAttribute('data-v');
+    if (state.suit === 'mayor') state.rank = -1;
+    renderChips(); render(); window.scrollTo(0, 0);
+  };
+  $('rankChips').onclick = function (e) {
+    var b = closest(e.target, 'data-v'); if (!b) return;
+    state.rank = parseInt(b.getAttribute('data-v'), 10);
+    renderChips(); render(); window.scrollTo(0, 0);
+  };
+
+  var searchTimer = null;
+  function onSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function () { state.q = search.value; render(); }, 150);
+  }
+  search.oninput = onSearch;
+  search.onkeyup = onSearch;
+  search.onsearch = onSearch;
+  search.onkeydown = function (e) { if (e.keyCode === 13) search.blur(); };
+
+  $('tipsBtn').onclick = function () {
+    var t = $('tips');
+    t.className = t.className.indexOf('open') >= 0 ? 'tips' : 'tips open';
+  };
+
+  grid.onclick = function (e) {
+    var a = closest(e.target, 'data-i');
+    if (!a) return;
+    e.preventDefault();
+    openCard(parseInt(a.getAttribute('data-i'), 10));
+  };
+
+  /* ---------- Detalle ---------- */
+
+  function openCard(idx) {
+    current = idx; reversed = false;
+    renderDetail();
+    $('overlay').className = 'overlay open';
+    $('overlay').scrollTop = 0;
+    document.body.className = 'locked';
+  }
+
+  function closeCard() {
+    $('overlay').className = 'overlay';
+    document.body.className = '';
+  }
+
+  function renderDetail() {
+    var c = CARDS[current], s = SUITS[c.suit];
+    var keys = c.keys.split(', '), tags = '';
+    for (var k = 0; k < keys.length; k++) tags += '<span class="tag">' + keys[k] + '</span>';
+    var meta = c.suit === 'mayor'
+      ? 'Arcano Mayor ' + c.num + ' · <i>' + c.en + '</i>'
+      : 'Arcano Menor · ' + s.name + ' (' + s.element + ') · <i>' + c.en.charAt(0).toUpperCase() + c.en.slice(1) + '</i>';
+
+    var html =
+      '<div class="hero"><div class="hero-img">' + thumbHTML(c, 500, reversed ? ' rev' : '') + '</div>' +
+      '<div class="hero-info"><h2>' + c.name + (reversed ? ' <small style="font-size:16px;color:#c0573f">(invertida)</small>' : '') + '</h2>' +
+      '<div class="meta">' + meta + '</div><div class="tags">' + tags + '</div>' +
+      '<button type="button" class="toggle' + (reversed ? ' on' : '') + '" id="revBtn">' +
+      (reversed ? '↺ Ver derecha' : '↻ Ver invertida') + '</button></div></div>';
+
+    if (reversed) {
+      html += block('b-rev', 'Si salió invertida', c.rev) +
+        block('b-msg', 'Mensaje (al derecho)', c.msg);
+    } else {
+      html += block('b-msg', 'El mensaje de esta carta', c.msg) +
+        block('', 'Significado', c.mean) +
+        block('b-adv', 'Consejo', c.adv) +
+        block('b-rev', 'Si salió invertida', c.rev);
+    }
+    if (reversed) html += block('', 'Significado', c.mean) + block('b-adv', 'Consejo', c.adv);
+    html += block('b-suit', s.name, s.info);
+
+    $('detail').innerHTML = html;
+    var pos = visible.indexOf(current);
+    $('position').innerHTML = pos >= 0 ? (pos + 1) + ' / ' + visible.length : '';
+    $('revBtn').onclick = function () { reversed = !reversed; renderDetail(); };
+  }
+
+  function block(cls, title, text) {
+    return '<div class="block ' + cls + '"><h3>' + title + '</h3><p>' + text + '</p></div>';
+  }
+
+  function step(dir) {
+    var list = visible.length ? visible : CARDS.map(function (c) { return c.index; });
+    var pos = list.indexOf(current);
+    pos = pos < 0 ? 0 : (pos + dir + list.length) % list.length;
+    current = list[pos]; reversed = false;
+    renderDetail();
+    $('overlay').scrollTop = 0;
+  }
+
+  $('prevBtn').onclick = function () { step(-1); };
+  $('nextBtn').onclick = function () { step(1); };
+  $('closeBtn').onclick = closeCard;
+  $('overlay').onclick = function (e) { if (e.target === this) closeCard(); };
+  $('randomBtn').onclick = function () {
+    openCard(Math.floor(Math.random() * CARDS.length));
+    if (Math.random() < 0.3) { reversed = true; renderDetail(); }
+  };
+
+  // Deslizar a izquierda/derecha dentro del detalle para cambiar de carta.
+  var sx = null, sy = null;
+  $('sheet').addEventListener('touchstart', function (e) {
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+  }, false);
+  $('sheet').addEventListener('touchend', function (e) {
+    if (sx === null) return;
+    var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+    sx = null;
+  }, false);
+
+  renderChips();
+  render();
+})();
+</script>
+</body>
+</html>
